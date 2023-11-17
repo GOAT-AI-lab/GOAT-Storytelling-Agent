@@ -1,0 +1,17 @@
+[build-system]
+requires = [
+    "setuptools",
+    "wheel",
+    "setuptools-scm",
+]
+
+[tool.setuptools]
+packages = ["src"]
+
+[project]
+name = "goat_storytelling_agent"
+version = "0.0.1"
+dependencies = [
+    "requests==2.31.0",
+    "transformers==4.35.2"
+]
