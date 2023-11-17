@@ -393,7 +393,7 @@ def continue_a_scene(
     return messages, generated_scene
 
 
-def example_run_pipeline(topic='never too much coffee', form='novel'):
+def generate_story(topic='never too much coffee', form='novel'):
     """Example pipeline for novel creation"""
     _, book_spec = init_book_spec(topic, form=form)
     _, book_spec = enhance_book_spec(book_spec, form=form)

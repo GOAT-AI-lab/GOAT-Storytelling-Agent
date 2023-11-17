@@ -6,7 +6,7 @@ requires = [
 ]
 
 [tool.setuptools]
-packages = ["src"]
+packages = ["goat_storytelling_agent"]
 
 [project]
 name = "goat_storytelling_agent"
