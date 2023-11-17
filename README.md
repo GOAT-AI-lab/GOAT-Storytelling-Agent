@@ -5,7 +5,7 @@ GOAT-Storytelling-Agent is an agent that writes consistent and  interesting stor
 The agent consists of several stages of planning and writing to build a story from top to down. A user can control the story creation at any preferred scale - starting from a basic novel description to the text of a specific scene. More details can be found in the [release blogpost](https://www.blog.goat.ai/goat-st/).
 
 ## Novella dataset
-To demonstrate the capabilities of the agent, we release 20 novellas generated without human supervision requiring only single initial topic for input. The dataset is hosted as an HF dataset - [generated-novels](https://huggingface.co/datasets/GOAT-AI/generated-novels).
+To demonstrate the capabilities of the agent, we release 20 novellas generated without human supervision requiring only single initial topic for input. The dataset is hosted as an HF dataset - [generated-novels](https://huggingface.co/datasets/GOAT-AI/generated-novels/tree/main/generated-books).
 
 ## Setup
 1. Provide configuration details in `goat_storytelling_agent/config.py` with a text generation endpoint and huggingface access token for tokenizer initialization.
