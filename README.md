@@ -124,7 +124,8 @@ Outcome: A potential location of the priceless artifact is discovered.
 ### Generate scene text based on the plan
 Finally, it is possible to generate the scene text with `write_a_scene`. Sometimes the whole text would not fit into the context window, so there is a `continue_a_scene` function that continues the text for the same scene given the progress so far.
 ```python
-messages, generated_scene = goat.write_a_scene(scene_descr, sc_num+1, ch_num, plan, previous_scene=None, form='novel')
+messages, generated_scene = goat.write_a_scene(scene_descr, sc_num+1, ch_num,
+                                               plan, previous_scene=None, form='novel')
 ```
 ```
 Chapter 1: Unveiling Secrets
