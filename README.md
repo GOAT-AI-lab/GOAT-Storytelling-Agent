@@ -1,4 +1,5 @@
 # GOAT-STORYTELLING-AGENT: Agent that writes consistent and interesting long stories for any fiction form
+![Image_Alternative_Text](https://assets.adapt.ws/files/20231117_ehznrqludevtapck.png)
 ## Description
 GOAT-STORYTELLING-AGENT is a framework that allows to write interesting and consistent stories over long context requiring only a standard LLM for text generation. By default it takes our open-source model, [GOAT-70B-STORYTELLING](https://huggingface.co/GOAT-AI/GOAT-70B-STORYTELLING), specifically tuned for the task.
 The framework consists of several stages of planning and writing to build a story from top to down. A user can control the story creation at any preferred scale - starting from a basic novel description to the text of a specific scene. More details can be found in the [release blogpost](https://www.blog.goat.ai/).
