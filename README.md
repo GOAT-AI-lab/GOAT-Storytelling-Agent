@@ -28,7 +28,7 @@ from goat_storytelling_agent import storytelling_agent as goat
 novel_scenes = goat.generate_story('treasure hunt in a jungle', form='novel')
 ```
 
-Under the hood, 'generate_story' performs following operations:
+Under the hood, `generate_story` performs following operations:
 ```python
 def generate_story(topic, form):
     _, book_spec = init_book_spec(topic, form=form)
