@@ -24,5 +24,5 @@ from goat_storytelling_agent.story_processor.prompt_manager import generate_stor
 novel_scenes = generate_story('never too much coffee', form='novel')
 ```
 
-## Examples
+## Novella dataset
 To demonstrate the capabilities of the agent, we also release 20 generated novellas from single initial topics. They are hosted as an HF dataset - [generated-novels](https://huggingface.co/datasets/GOAT-AI/generated-novels).
