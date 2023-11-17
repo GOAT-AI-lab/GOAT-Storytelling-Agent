@@ -129,23 +129,61 @@ messages, generated_scene = goat.write_a_scene(scene_descr, sc_num+1, ch_num, pl
 ```
 Chapter 1: Unveiling Secrets
 
-Dr. Helen Carr was no stranger to mystery. Within the confines of her office at the prestigious Oxford University, the archaeologist had brought age-old artifacts to life, disseminating enigmatic tales of civilizations long lost. Under the golden hue of her desk lamp this cool morning, stood an object of ultimate intrigue - an ancient map she'd discovered on her last expedition to Peru.
+Dr. Helen Carr was no stranger to mystery. Within the confines of her
+office at the prestigious Oxford University, the archaeologist had 
+brought age-old artifacts to life, disseminating enigmatic tales of 
+civilizations long lost. Under the golden hue of her desk lamp this 
+cool morning, stood an object of ultimate intrigue - an ancient map 
+she'd discovered on her last expedition to Peru.
 
-The map was an intricate dance of color and lines, a kaleidoscope of symbols that caught Helen's eyes. She sat at her desk, her steaming cup of Earl Grey ignored as she poured over the parchment, a delicious thrill coursing through her veins. The map bore its age with grace, the edges slightly singed, mocking her with its stoic silence.
+The map was an intricate dance of color and lines, a kaleidoscope of 
+symbols that caught Helen's eyes. She sat at her desk, her steaming 
+cup of Earl Grey ignored as she poured over the parchment, a delicious 
+thrill coursing through her veins. The map bore its age with grace, 
+the edges slightly singed, mocking her with its stoic silence.
 
-She felt that some secrets were locked inside this parchment. "Talk to me", Helen whispered to herself, her eyes squinting at the delicately inscribed symbols. Her fingers traced the lines of the map, feeling the faintest etchings, the texture almost whispering the tales of yore.
+She felt that some secrets were locked inside this parchment. "Talk to 
+me", Helen whispered to herself, her eyes squinting at the delicately 
+inscribed symbols. Her fingers traced the lines of the map, feeling 
+the faintest etchings, the texture almost whispering the tales of yore.
 
-Suddenly, she paused. Her heart throbbed a little as she looked at a part of the map that felt different from the rest. Helen lowered her eyeglasses down to her nose, peering at a set of unusual inscriptions. 
+Suddenly, she paused. Her heart throbbed a little as she looked at a 
+part of the map that felt different from the rest. Helen lowered her 
+eyeglasses down to her nose, peering at a set of unusual inscriptions. 
 
-Her blood was now a concerto of adrenaline. Something was uncannily remarkable with the characters etched. "An undiscovered dialect? No." Helen muttered. The characters resembled a form of ancient Amazonian language. But this wasn't right, ancient Amazonian dialect wasn't a writing language.
+Her blood was now a concerto of adrenaline. Something was uncannily 
+remarkable with the characters etched. "An undiscovered dialect? No." 
+Helen muttered. The characters resembled a form of ancient Amazonian 
+language. But this wasn't right, ancient Amazonian dialect wasn't a 
+writing language.
 
-Determinedly, she grabbed several volumes from her bookshelf, each a hefty tome of knowledge on South American civilizations. Helen immersed herself in study, to decode the curious symbols. The aroma of old books mixed with her dampening enthusiasm, turning the hours into seconds.
+Determinedly, she grabbed several volumes from her bookshelf, each a 
+hefty tome of knowledge on South American civilizations. Helen 
+immersed herself in study, to decode the curious symbols. The aroma of 
+old books mixed with her dampening enthusiasm, turning the hours into 
+seconds.
 
-Just as lunch time approached, the mood of frustration counterpointed with a moment of insight. With shaking hands, Helen drew parallels between the symbols and ancient Amazonian petroglyphs, forgotten by the world except for a handful of scholars such as herself.\
+Just as lunch time approached, the mood of frustration counterpointed 
+with a moment of insight. With shaking hands, Helen drew parallels 
+between the symbols and ancient Amazonian petroglyphs, forgotten by 
+the world except for a handful of scholars such as herself.
 
-As she successfully decoded the symbols one after another, the meaning dawned on her - the location of a priceless artifact, hidden within the unfathomable Amazon jungle depths. Helen's heart thumped loudly in her ears. This ethereal moment held a mesmerizing potential - countless years of seasoned research leading to an extraordinary discovery.
+As she successfully decoded the symbols one after another, the meaning 
+dawned on her - the location of a priceless artifact, hidden within 
+the unfathomable Amazon jungle depths. Helen's heart thumped loudly in 
+her ears. This ethereal moment held a mesmerizing potential - 
+countless years of seasoned research leading to an extraordinary 
+discovery.
 
-Reverently, she touched the map again, feeling a boundless respect towards the ancient civilization. They had safeguarded their knowledge, handed it down until it found its way into her hands, to unfurl its story and hand it down to posterity. Months of meticulously planned expeditions would follow, but now, she savored this moment of solitary discovery.
+Reverently, she touched the map again, feeling a boundless respect 
+towards the ancient civilization. They had safeguarded their 
+knowledge, handed it down until it found its way into her hands, to 
+unfurl its story and hand it down to posterity. Months of meticulously 
+planned expeditions would follow, but now, she savored this moment of 
+solitary discovery.
 
-The clock on the wall read noon but this ordinary morning had turned extraordinary for Dr. Helen Carr. The walls of her office bore silent witness to a remarkable revelation, one that could change the course of history.
+The clock on the wall read noon but this ordinary morning had turned 
+extraordinary for Dr. Helen Carr. The walls of her office bore silent 
+witness to a remarkable revelation, one that could change the course 
+of history.
 ```
