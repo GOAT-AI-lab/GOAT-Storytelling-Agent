@@ -27,6 +27,30 @@ from goat_storytelling_agent import storytelling_agent as goat
 
 novel_scenes = goat.generate_story('treasure hunt in a jungle', form='novel')
 ```
+
+Under the hood, generate_story performs following operations:
+```python
+def generate_story(topic, form):
+    _, book_spec = init_book_spec(topic, form=form)
+    _, book_spec = enhance_book_spec(book_spec, form=form)
+    _, plan = create_plot_chapters(book_spec, form=form)
+    _, plan = enhance_plot_chapters(book_spec, plan, form=form)
+    _, plan = split_chapters_into_scenes(plan, form=form)
+
+    form_text = []
+    for act in plan:
+        for ch_num, chapter in act['chapter_scenes'].items():
+            sc_num = 1
+            for scene in chapter:
+                previous_scene = form_text[-1] if form_text else None
+                _, generated_scene = write_a_scene(
+                    scene, sc_num, ch_num, plan, previous_scene=previous_scene, form=form)
+                form_text.append(generated_scene)
+                sc_num += 1
+    return form_text
+```
+
+Some of the steps will be reviewed in the examples below.
 ### Create novel ideas from a seed topic
 It is possible to break down the generation process and have a more granular control over the story. `init_book_spec` command takes a topic and comes up with a book description consisting of predefined fields - Genre, Place, Time, Theme, Tone, Point of View, Characters, Premise. It is possible to add your own fields and then pass the spec in subsequent stages.
 
@@ -98,6 +122,7 @@ Outcome: A potential location of the priceless artifact is discovered.
 ```
 
 ### Generate scene text based on the plan
+Finally, it is possible to generate the scene text with `write_a_scene`. Sometimes the whole text would not fit into the context window, so there is a `continue_a_scene` function that continues the text for the same scene given the progress so far.
 ```python
 messages, generated_scene = goat.write_a_scene(scene_descr, sc_num+1, ch_num, plan, previous_scene=None, form='novel')
 ```

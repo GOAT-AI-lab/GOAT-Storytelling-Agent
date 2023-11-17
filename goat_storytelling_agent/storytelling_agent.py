@@ -393,7 +393,7 @@ def continue_a_scene(
     return messages, generated_scene
 
 
-def generate_story(topic='never too much coffee', form='novel'):
+def generate_story(topic, form):
     """Example pipeline for novel creation"""
     _, book_spec = init_book_spec(topic, form=form)
     _, book_spec = enhance_book_spec(book_spec, form=form)
@@ -401,7 +401,7 @@ def generate_story(topic='never too much coffee', form='novel'):
     _, plan = enhance_plot_chapters(book_spec, plan, form=form)
     _, plan = split_chapters_into_scenes(plan, form=form)
 
-    form_text = []  # takes around 14 min for 20k words
+    form_text = []
     for act in plan:
         for ch_num, chapter in act['chapter_scenes'].items():
             sc_num = 1
@@ -409,10 +409,6 @@ def generate_story(topic='never too much coffee', form='novel'):
                 previous_scene = form_text[-1] if form_text else None
                 _, generated_scene = write_a_scene(
                     scene, sc_num, ch_num, plan, previous_scene=previous_scene, form=form)
-                if not generated_scene:
-                    form_text.append("Skipped: Chapter " + str(ch_num) + ", Scene " + str(sc_num) + ".\n")
-                    continue
-                generated_scene = "Generated: Chapter " + str(ch_num) + ", Scene " + str(sc_num) + ":\n" + generated_scene
                 form_text.append(generated_scene)
                 sc_num += 1
     return form_text
