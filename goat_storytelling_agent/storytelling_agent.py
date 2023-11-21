@@ -10,17 +10,22 @@ from . import prompts, utils
 from .config import ENDPOINT, HF_ACCESS_TOKEN
 from .plan import Plan
 
-def generate_prompt_parts(messages, include_roles=set(('user', 'assistant'))):
-    for message in messages:
-        if message['role'] not in include_roles:
-            continue
+def generate_prompt_parts(messages, include_roles=set(('user', 'assistant', 'system'))):
+    last_role = None
+    messages = [m for m in messages if m['role'] in include_roles]
+    for idx, message in enumerate(messages):
+        nl = "\n" if idx > 0 else ""
         if message['role'] == 'system':
-            yield f"{message['content']}\n"
+            if idx > 0 and last_role not in (None, "system"):
+                raise ValueError("system message not at start")
+            yield f"{message['content']}"
         elif message['role'] == 'user':
-            yield f"### USER: {message['content']}\n"
+            yield f"{nl}### USER: {message['content']}"
         elif message['role'] == 'assistant':
-            yield f"### ASSISTANT: {message['content']}\n"
-    yield '### ASSISTANT: '
+            yield f"{nl}### ASSISTANT: {message['content']}"
+        last_role = message['role']
+    if last_role != 'assistant':
+        yield '\n### ASSISTANT:'
 
 
 hf_tokenizer = None
@@ -46,7 +51,11 @@ def _query_chat_hf(endpoint, messages, retries=3, request_timeout=120, max_token
             response = requests.post(
                 endpoint, headers=headers, data=json.dumps(data),
                 timeout=request_timeout)
-            generated_text = json.loads(response.text)['generated_text']
+            if messages and messages[-1]["role"] == "assistant":
+                result_prefix = messages[-1]["content"]
+            else:
+                result_prefix = ''
+            generated_text = result_prefix + json.loads(response.text)['generated_text']
             return generated_text
         except Exception:
             traceback.print_exc()
@@ -60,7 +69,8 @@ def _query_chat_hf(endpoint, messages, retries=3, request_timeout=120, max_token
 def _query_chat_llamacpp(endpoint, messages, retries=3, request_timeout=120, max_tokens=4096, extra_options={}):
     headers = {'Content-Type': 'application/json'}
     prompt = ''.join(generate_prompt_parts(messages))
-    print(f"Submitting prompt: >>\n{prompt}")
+    print(f"\n\n========== Submitting prompt: >>\n{prompt}", end="")
+    sys.stdout.flush()
     response = requests.post(
         f"{endpoint}tokenize", headers=headers, data=json.dumps({"content": prompt}),
         timeout=request_timeout, stream=False)
@@ -75,6 +85,8 @@ def _query_chat_llamacpp(endpoint, messages, retries=3, request_timeout=120, max
     request_kwargs = dict(headers=headers, data=jdata, timeout=request_timeout, stream=True)
     response = requests.post(f"{endpoint}completion", **request_kwargs)
     result = bytearray()
+    if messages and messages[-1]["role"] == "assistant":
+        result += messages[-1]["content"].encode("utf-8")
     is_first = True
     for line in response.iter_lines():
         line = line.strip()
@@ -98,7 +110,7 @@ def _query_chat_llamacpp(endpoint, messages, retries=3, request_timeout=120, max
         result += bytes(content, encoding="utf-8")
         if is_first:
             is_first = False
-            print("Response: << ", end="")
+            print("<<|", end="")
             sys.stdout.flush()
         print(content, end="")
         sys.stdout.flush()
@@ -109,7 +121,8 @@ def _query_chat_llamacpp(endpoint, messages, retries=3, request_timeout=120, max
 
 
 class StoryAgent:
-    def __init__(self, topic, form='novel', backend="hf", backend_uri = None, max_tokens=4096, extra_options={}):
+    def __init__(self, topic, form='novel', backend="hf", backend_uri = None,
+        max_tokens=4096, n_crop_previous=400, extra_options={}, scene_extra_options = {}):
         if backend.lower() in ("hf", "huggingface"):
             self.query_backend = _query_chat_hf
         elif backend.lower() in ("llamacpp", "llama.cpp"):
@@ -120,7 +133,10 @@ class StoryAgent:
         self.form = form
         self.max_tokens = max_tokens
         self.extra_options = extra_options
+        self.scene_extra_options = extra_options.copy()
+        self.scene_extra_options.update(scene_extra_options)
         self.backend_uri = ENDPOINT if backend_uri is None else backend_uri
+        self.n_crop_previous = n_crop_previous
 
     def query_chat(self, messages, retries=3, request_timeout=120):
         return self.query_backend(self.backend_uri, messages,
@@ -187,6 +203,7 @@ class StoryAgent:
         # Check and fill in missing fields
         for field in prompts.book_spec_fields:
             while not spec_dict[field]:
+                messages = prompts.init_book_spec_messages(self.topic, self.form, field = field)
                 messages[1]['content'] = (
                     f'{prompts.missing_field_prompt[0]}{field}'
                     f'{prompts.missing_field_prompt[1]}{text_spec}'
@@ -388,7 +405,7 @@ class StoryAgent:
 
 
     def write_a_scene(self,
-            scene, sc_num, ch_num, plan, previous_scene=None, n_crop_previous=400):
+            scene, sc_num, ch_num, plan, previous_scene=None):
         """Generates a scene text for a form
 
         Parameters
@@ -421,15 +438,14 @@ class StoryAgent:
         messages = prompts.scene_messages(scene, sc_num, ch_num, text_plan, self.form)
         if previous_scene:
             previous_scene = utils.keep_last_n_words(previous_scene,
-                                                     n=n_crop_previous)
+                                                     n=self.n_crop_previous)
             messages[1]['content'] += f'{prompts.prev_scene_intro}\"\"\"{previous_scene}\"\"\"'
         generated_scene = self.query_chat(messages)
         generated_scene = self.prepare_scene_text(generated_scene)
         return messages, generated_scene
 
 
-    def continue_a_scene(self,
-            scene, sc_num, ch_num, plan, current_scene=None, n_crop_previous=400):
+    def continue_a_scene(self, scene, sc_num, ch_num, plan, current_scene=None):
         """Continues a scene text for a form
 
         Parameters
@@ -462,7 +478,7 @@ class StoryAgent:
         messages = prompts.scene_messages(scene, sc_num, ch_num, text_plan, self.form)
         if current_scene:
             current_scene = utils.keep_last_n_words(current_scene,
-                                                    n=n_crop_previous)
+                                                    n=self.n_crop_previous)
             messages[1]['content'] += f'{prompts.cur_scene_intro}\"\"\"{current_scene}\"\"\"'
         generated_scene = self.query_chat(messages)
         generated_scene = self.prepare_scene_text(generated_scene)
@@ -513,17 +529,17 @@ def split_chapters_into_scenes(plan, form='novel', **kwargs):
 def write_a_scene(
         scene, sc_num, ch_num, plan, previous_scene=None,
         form="novel", n_crop_previous=400, **kwargs):
-    return StoryAgent("", form, **kwargs).write_a_scene(
+    return StoryAgent("", form, n_crop_previous=n_crop_previous, **kwargs).write_a_scene(
         scene, sc_num, ch_num, plan, previous_scene=previous_scene,
-        n_crop_previous=n_crop_previous, **kwargs,
+        **kwargs,
     )
 
 def continue_a_scene(
         scene, sc_num, ch_num, plan, current_scene=None,
-        form="novel", n_crop_previous=400, **kwargs):
-    return StoryAgent("", form, **kwargs).continue_a_scene(
+        form="novel", **kwargs):
+    return StoryAgent("", form, n_crop_previous=400, **kwargs).continue_a_scene(
         scene, sc_num, ch_num, plan, curresnt_scene=current_scene,
-        n_crop_previous=n_crop_previous, **kwargs,
+        **kwargs,
     )
 
 
