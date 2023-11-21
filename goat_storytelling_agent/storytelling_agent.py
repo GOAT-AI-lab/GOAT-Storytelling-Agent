@@ -121,7 +121,7 @@ def _query_chat_llamacpp(endpoint, messages, retries=3, request_timeout=120, max
 
 
 class StoryAgent:
-    def __init__(self, topic, form='novel', backend="hf", backend_uri = None,
+    def __init__(self, topic, form='novel', backend="hf", backend_uri = None, request_timeout=120,
         max_tokens=4096, n_crop_previous=400, extra_options={}, scene_extra_options = {}):
         if backend.lower() in ("hf", "huggingface"):
             self.query_backend = _query_chat_hf
@@ -137,10 +137,11 @@ class StoryAgent:
         self.scene_extra_options.update(scene_extra_options)
         self.backend_uri = ENDPOINT if backend_uri is None else backend_uri
         self.n_crop_previous = n_crop_previous
+        self.request_timeout = request_timeout
 
-    def query_chat(self, messages, retries=3, request_timeout=120):
+    def query_chat(self, messages, retries=3):
         return self.query_backend(self.backend_uri, messages,
-            retries=retries, request_timeout=request_timeout,
+            retries=retries, request_timeout=self.request_timeout,
             max_tokens=self.max_tokens, extra_options=self.extra_options)
 
     @staticmethod
