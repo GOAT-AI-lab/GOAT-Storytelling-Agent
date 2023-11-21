@@ -10,7 +10,7 @@ from . import prompts, utils
 from .config import ENDPOINT, HF_ACCESS_TOKEN
 from .plan import Plan
 
-def generate_prompt_parts(messages, include_roles=set('user', 'assistant')):
+def generate_prompt_parts(messages, include_roles=set(('user', 'assistant'))):
     for message in messages:
         if message['role'] not in include_roles:
             continue
@@ -283,7 +283,7 @@ class StoryAgent:
         dict
             Dict with updated book plan
         """
-        text_plan = Plan.plan_2_str(self.plan)
+        text_plan = Plan.plan_2_str(plan)
         all_messages = []
         for act_num in range(3):
             messages = prompts.enhance_plot_chapters_messages(
