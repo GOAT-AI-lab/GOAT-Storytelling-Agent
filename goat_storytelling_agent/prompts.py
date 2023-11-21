@@ -52,12 +52,12 @@ def create_plot_chapters_messages(book_spec, form):
     return messages
 
 
-def enhance_plot_chapters_messages(text_plan, book_spec, form):
+def enhance_plot_chapters_messages(act_num, text_plan, book_spec, form):
     messages = [
         {"role": "system", "content": system},
         {"role": "user", "content": f"Come up with a plot for a bestseller-grade {form} in 3 acts. Break down the plot into chapters using the following structure:\nActs\n- Chapters\n\nEarly {form} description:\n\"\"\"{book_spec}\"\"\""},
         {"role": "assistant", "content": text_plan},
-        {"role": "user", "content": f"Take Act {i+1}. Rewrite the plan so that chapter's story value alternates (i.e. if Chapter 1 is positive, Chapter 2 is negative, and so on). Describe only concrete events and actions (who did what). Make it very short (one breif sentence and value charge indication per chapter)"}]
+        {"role": "user", "content": f"Take Act {act_num+1}. Rewrite the plan so that chapter's story value alternates (i.e. if Chapter 1 is positive, Chapter 2 is negative, and so on). Describe only concrete events and actions (who did what). Make it very short (one brief sentence and value charge indication per chapter)"}]
     return messages
 
 
