@@ -110,9 +110,9 @@ def init_book_spec(topic, form='novel', query_chat=_query_chat):
     for field in prompts.book_spec_fields:
         while not spec_dict[field]:
             messages[1]['content'] = (
-                f'{prompts.missing_prompts[0]}{field}'
-                f'{prompts.missing_prompts[1]}{text_spec}'
-                f'{prompts.missing_prompts[2]}')
+                f'{prompts.missing_field_prompt[0]}{field}'
+                f'{prompts.missing_field_prompt[1]}{text_spec}'
+                f'{prompts.missing_field_prompt[2]}')
             missing_part = query_chat(messages)
             key, sep, value = missing_part.partition(':')
             if key.lower().strip() == field.lower().strip():
