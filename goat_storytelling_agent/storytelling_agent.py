@@ -6,11 +6,14 @@ import requests
 import traceback
 
 from goat_storytelling_agent import prompts, utils
-from goat_storytelling_agent.config import ENDPOINT
 from goat_storytelling_agent.plan import Plan
 
 
-def generate_prompt_parts(messages, include_roles=set(('user', 'assistant', 'system'))):
+SUPPORTED_BACKENDS = ["hf", "llama.cpp"]
+
+
+def generate_prompt_parts(
+        messages, include_roles=set(('user', 'assistant', 'system'))):
     last_role = None
     messages = [m for m in messages if m['role'] in include_roles]
     for idx, message in enumerate(messages):
@@ -28,14 +31,10 @@ def generate_prompt_parts(messages, include_roles=set(('user', 'assistant', 'sys
         yield '\n### ASSISTANT:'
 
 
-hf_tokenizer = None
-def _query_chat_hf(endpoint, messages, retries=3, request_timeout=120, max_tokens=4096, extra_options={}):
-    from transformers import LlamaTokenizerFast
-    if hf_tokenizer is None:
-        hf_tokenizer = LlamaTokenizerFast.from_pretrained(
-            "GOAT-AI/GOAT-70B-Storytelling")
+def _query_chat_hf(endpoint, messages, tokenizer, retries=3,
+                   request_timeout=120, max_tokens=4096, extra_options={}):
     prompt = ''.join(generate_prompt_parts(messages))
-    tokens = hf_tokenizer(prompt, add_special_tokens=True,
+    tokens = tokenizer(prompt, add_special_tokens=True,
                        truncation=False)['input_ids']
     data = {
         "inputs": prompt,
@@ -54,7 +53,8 @@ def _query_chat_hf(endpoint, messages, retries=3, request_timeout=120, max_token
                 result_prefix = messages[-1]["content"]
             else:
                 result_prefix = ''
-            generated_text = result_prefix + json.loads(response.text)['generated_text']
+            generated_text = result_prefix + json.loads(
+                response.text)['generated_text']
             return generated_text
         except Exception:
             traceback.print_exc()
@@ -65,13 +65,15 @@ def _query_chat_hf(endpoint, messages, retries=3, request_timeout=120, max_token
         return ''
 
 
-def _query_chat_llamacpp(endpoint, messages, retries=3, request_timeout=120, max_tokens=4096, extra_options={}):
+def _query_chat_llamacpp(endpoint, messages, retries=3, request_timeout=120,
+                         max_tokens=4096, extra_options={}):
     headers = {'Content-Type': 'application/json'}
     prompt = ''.join(generate_prompt_parts(messages))
     print(f"\n\n========== Submitting prompt: >>\n{prompt}", end="")
     sys.stdout.flush()
     response = requests.post(
-        f"{endpoint}tokenize", headers=headers, data=json.dumps({"content": prompt}),
+        f"{endpoint}/tokenize", headers=headers,
+        data=json.dumps({"content": prompt}),
         timeout=request_timeout, stream=False)
     tokens = [1, *response.json()["tokens"]]
     data = {
@@ -81,7 +83,8 @@ def _query_chat_llamacpp(endpoint, messages, retries=3, request_timeout=120, max
         **extra_options,
     }
     jdata = json.dumps(data)
-    request_kwargs = dict(headers=headers, data=jdata, timeout=request_timeout, stream=True)
+    request_kwargs = dict(headers=headers, data=jdata,
+                          timeout=request_timeout, stream=True)
     response = requests.post(f"{endpoint}completion", **request_kwargs)
     result = bytearray()
     if messages and messages[-1]["role"] == "assistant":
@@ -120,28 +123,40 @@ def _query_chat_llamacpp(endpoint, messages, retries=3, request_timeout=120, max
 
 
 class StoryAgent:
-    def __init__(self, topic, form='novel', backend="hf", backend_uri = None, request_timeout=120,
-        max_tokens=4096, n_crop_previous=400, extra_options={}, scene_extra_options = {}):
-        if backend.lower() in ("hf", "huggingface"):
-            self.query_backend = _query_chat_hf
-        elif backend.lower() in ("llamacpp", "llama.cpp"):
-            self.query_backend = _query_chat_llamacpp
-        else:
+    def __init__(self, form='novel', backend="hf", backend_uri=None,
+                 request_timeout=120, max_tokens=4096, n_crop_previous=400,
+                 extra_options={}, scene_extra_options={}):
+
+        self.backend = backend.lower()
+        if self.backend not in SUPPORTED_BACKENDS:
             raise ValueError("Unknown backend")
-        self.topic = topic
+
+        if self.backend == "hf":
+            from transformers import LlamaTokenizerFast
+            self.tokenizer = LlamaTokenizerFast.from_pretrained(
+                "GOAT-AI/GOAT-70B-Storytelling")
+
         self.form = form
         self.max_tokens = max_tokens
         self.extra_options = extra_options
         self.scene_extra_options = extra_options.copy()
         self.scene_extra_options.update(scene_extra_options)
-        self.backend_uri = ENDPOINT if backend_uri is None else backend_uri
+        self.backend_uri = backend_uri
         self.n_crop_previous = n_crop_previous
         self.request_timeout = request_timeout
 
     def query_chat(self, messages, retries=3):
-        return self.query_backend(self.backend_uri, messages,
-            retries=retries, request_timeout=self.request_timeout,
-            max_tokens=self.max_tokens, extra_options=self.extra_options)
+        if self.backend == "hf":
+            result = _query_chat_hf(
+                self.backend_uri, messages, self.tokenizer, retries=retries,
+                request_timeout=self.request_timeout,
+                max_tokens=self.max_tokens, extra_options=self.extra_options)
+        elif self.backend == "llama.cpp":
+            result = _query_chat_llamacpp(
+                self.backend_uri, messages, retries=retries,
+                request_timeout=self.request_timeout,
+                max_tokens=self.max_tokens, extra_options=self.extra_options)
+        return result
 
     @staticmethod
     def parse_book_spec(text_spec, fields=prompts.book_spec_fields):
@@ -174,18 +189,13 @@ class StoryAgent:
         spec_dict.pop('other', None)
         return spec_dict
 
-
-    def init_book_spec(self):
+    def init_book_spec(self, topic):
         """Creates initial book specification
 
         Parameters
         ----------
         topic : str
             Short initial topic
-        form : str, optional
-            A story form to create, by default 'novel'
-        query_chat : fn, optional
-            A function that sends queries to a text generation engine, by default _query_chat
 
         Returns
         -------
@@ -194,7 +204,7 @@ class StoryAgent:
         str
             Book specification text
         """
-        messages = prompts.init_book_spec_messages(self.topic, self.form)
+        messages = prompts.init_book_spec_messages(topic, self.form)
         text_spec = self.query_chat(messages)
         spec_dict = self.parse_book_spec(text_spec)
 
@@ -203,7 +213,8 @@ class StoryAgent:
         # Check and fill in missing fields
         for field in prompts.book_spec_fields:
             while not spec_dict[field]:
-                messages = prompts.init_book_spec_messages(self.topic, self.form, field = field)
+                messages = prompts.init_book_spec_messages(topic, self.form,
+                                                           field=field)
                 messages[1]['content'] = (
                     f'{prompts.missing_field_prompt[0]}{field}'
                     f'{prompts.missing_field_prompt[1]}{text_spec}'
@@ -216,7 +227,6 @@ class StoryAgent:
                               for key, value in spec_dict.items())
         return messages, text_spec
 
-
     def enhance_book_spec(self, book_spec):
         """Make book specification more detailed
 
@@ -224,10 +234,6 @@ class StoryAgent:
         ----------
         book_spec : str
             Book specification
-        form : str, optional
-            A story form to create, by default 'novel'
-        query_chat : fn, optional
-            A function that sends queries to a text generation engine, by default _query_chat
 
         Returns
         -------
@@ -250,7 +256,6 @@ class StoryAgent:
                               for key, value in spec_dict_new.items())
         return messages, text_spec
 
-
     def create_plot_chapters(self, book_spec):
         """Create initial by-plot outline of form
 
@@ -258,10 +263,6 @@ class StoryAgent:
         ----------
         book_spec : str
             Book specification
-        form : str, optional
-            A story form to create, by default 'novel'
-        query_chat : fn, optional
-            A function that sends queries to a text generation engine, by default _query_chat
 
         Returns
         -------
@@ -278,7 +279,6 @@ class StoryAgent:
                 plan = Plan.parse_text_plan(text_plan)
         return messages, plan
 
-
     def enhance_plot_chapters(self, book_spec, plan):
         """Enhances the outline to make the flow more engaging
 
@@ -288,10 +288,6 @@ class StoryAgent:
             Book specification
         plan : Dict
             Dict with book plan
-        form : str, optional
-            A story form to create, by default 'novel'
-        query_chat : fn, optional
-            A function that sends queries to a text generation engine, by default _query_chat
 
         Returns
         -------
@@ -316,7 +312,6 @@ class StoryAgent:
                 text_plan = Plan.plan_2_str(plan)
             all_messages.append(messages)
         return all_messages, plan
-
 
     def split_chapters_into_scenes(self, plan):
         """Creates a by-scene breakdown of all chapters
@@ -379,7 +374,6 @@ class StoryAgent:
                 act['chapter_scenes'][ch_num] = scenes
         return all_messages, plan
 
-
     @staticmethod
     def prepare_scene_text(text):
         lines = text.split('\n')
@@ -403,9 +397,8 @@ class StoryAgent:
         text = '\n'.join(lines)
         return text
 
-
-    def write_a_scene(self,
-            scene, sc_num, ch_num, plan, previous_scene=None):
+    def write_a_scene(
+            self, scene, sc_num, ch_num, plan, previous_scene=None):
         """Generates a scene text for a form
 
         Parameters
@@ -420,12 +413,6 @@ class StoryAgent:
             Dict with book plan
         previous_scene : str, optional
             Previous scene text, by default None
-        form : str, optional
-            A story form to create, by default 'novel'
-        query_chat : fn, optional
-            A function that sends queries to a text generation engine, by default _query_chat
-        n_crop_previous : int, optional
-            Number of words to leave for the previous scene, by default 400
 
         Returns
         -------
@@ -444,8 +431,8 @@ class StoryAgent:
         generated_scene = self.prepare_scene_text(generated_scene)
         return messages, generated_scene
 
-
-    def continue_a_scene(self, scene, sc_num, ch_num, plan, current_scene=None):
+    def continue_a_scene(self, scene, sc_num, ch_num,
+                         plan, current_scene=None):
         """Continues a scene text for a form
 
         Parameters
@@ -475,7 +462,8 @@ class StoryAgent:
             Generated scene continuation text
         """
         text_plan = Plan.plan_2_str(plan)
-        messages = prompts.scene_messages(scene, sc_num, ch_num, text_plan, self.form)
+        messages = prompts.scene_messages(scene, sc_num, ch_num,
+                                          text_plan, self.form)
         if current_scene:
             current_scene = utils.keep_last_n_words(current_scene,
                                                     n=self.n_crop_previous)
@@ -484,10 +472,9 @@ class StoryAgent:
         generated_scene = self.prepare_scene_text(generated_scene)
         return messages, generated_scene
 
-
-    def generate_story(self):
-        """Example pipeline for novel creation"""
-        _, book_spec = self.init_book_spec()
+    def generate_story(self, topic):
+        """Example pipeline for a novel creation"""
+        _, book_spec = self.init_book_spec(topic)
         _, book_spec = self.enhance_book_spec(book_spec)
         _, plan = self.create_plot_chapters(book_spec)
         _, plan = self.enhance_plot_chapters(book_spec, plan)
@@ -500,49 +487,8 @@ class StoryAgent:
                 for scene in chapter:
                     previous_scene = form_text[-1] if form_text else None
                     _, generated_scene = self.write_a_scene(
-                        scene, sc_num, ch_num, plan, previous_scene=previous_scene)
+                        scene, sc_num, ch_num, plan,
+                        previous_scene=previous_scene)
                     form_text.append(generated_scene)
                     sc_num += 1
         return form_text
-
-
-def init_book_spec(topic, form='novel', **kwargs):
-    return StoryAgent(topic, form, **kwargs).init_book_spec()
-
-
-def enhance_book_spec(book_spec, form='novel', **kwargs):
-    return StoryAgent("", form, **kwargs).enhance_book_spec(book_spec)
-
-
-def create_plot_chapters(book_spec, form='novel', **kwargs):
-    return StoryAgent("", form, **kwargs).create_plot_chapters(book_spec)
-
-
-def enhanceplot_chapters(book_spec, plan, form='novel', **kwargs):
-    return StoryAgent("", form, **kwargs).enhanceplot_chapters(book_spec, plan)
-
-
-def split_chapters_into_scenes(plan, form='novel', **kwargs):
-    return StoryAgent("", form, **kwargs).split_chapters_into_scenes(plan)
-
-
-def write_a_scene(
-        scene, sc_num, ch_num, plan, previous_scene=None,
-        form="novel", n_crop_previous=400, **kwargs):
-    return StoryAgent("", form, n_crop_previous=n_crop_previous, **kwargs).write_a_scene(
-        scene, sc_num, ch_num, plan, previous_scene=previous_scene,
-        **kwargs,
-    )
-
-
-def continue_a_scene(
-        scene, sc_num, ch_num, plan, current_scene=None,
-        form="novel", **kwargs):
-    return StoryAgent("", form, n_crop_previous=400, **kwargs).continue_a_scene(
-        scene, sc_num, ch_num, plan, curresnt_scene=current_scene,
-        **kwargs,
-    )
-
-
-def generate_story(topic, form='novel', **kwargs):
-    return StoryAgent(topic, form, **kwargs)
