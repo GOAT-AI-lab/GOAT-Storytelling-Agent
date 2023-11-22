@@ -13,7 +13,7 @@ from src.plan import Plan
 
 
 tokenizer = LlamaTokenizerFast.from_pretrained(
-    "meta-llama/Llama-2-70b", token=HF_ACCESS_TOKEN)
+    "GOAT-AI/GOAT-70B-Storytelling")
 
 
 def _query_chat(messages, retries=3, request_timeout=120):
