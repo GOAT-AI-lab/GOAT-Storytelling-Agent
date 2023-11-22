@@ -5,10 +5,10 @@ import json
 import requests
 import traceback
 
+from goat_storytelling_agent import prompts, utils
+from goat_storytelling_agent.config import ENDPOINT
+from goat_storytelling_agent.plan import Plan
 
-from . import prompts, utils
-from .config import ENDPOINT, HF_ACCESS_TOKEN
-from .plan import Plan
 
 def generate_prompt_parts(messages, include_roles=set(('user', 'assistant', 'system'))):
     last_role = None
@@ -30,11 +30,10 @@ def generate_prompt_parts(messages, include_roles=set(('user', 'assistant', 'sys
 
 hf_tokenizer = None
 def _query_chat_hf(endpoint, messages, retries=3, request_timeout=120, max_tokens=4096, extra_options={}):
-    global hf_tokenizer
     from transformers import LlamaTokenizerFast
     if hf_tokenizer is None:
         hf_tokenizer = LlamaTokenizerFast.from_pretrained(
-            "GOAT-AI/GOAT-70B-Storytelling", token=HF_ACCESS_TOKEN)
+            "GOAT-AI/GOAT-70B-Storytelling")
     prompt = ''.join(generate_prompt_parts(messages))
     tokens = hf_tokenizer(prompt, add_special_tokens=True,
                        truncation=False)['input_ids']
@@ -534,6 +533,7 @@ def write_a_scene(
         scene, sc_num, ch_num, plan, previous_scene=previous_scene,
         **kwargs,
     )
+
 
 def continue_a_scene(
         scene, sc_num, ch_num, plan, current_scene=None,
