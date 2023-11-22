@@ -7,9 +7,9 @@ import traceback
 
 from transformers import LlamaTokenizerFast
 
-from src import prompts, utils
-from src.config import ENDPOINT, HF_ACCESS_TOKEN
-from src.plan import Plan
+from goat_storytelling_agent import prompts, utils
+from goat_storytelling_agent.config import ENDPOINT
+from goat_storytelling_agent.plan import Plan
 
 
 tokenizer = LlamaTokenizerFast.from_pretrained(
@@ -408,7 +408,8 @@ def generate_story(topic, form):
             for scene in chapter:
                 previous_scene = form_text[-1] if form_text else None
                 _, generated_scene = write_a_scene(
-                    scene, sc_num, ch_num, plan, previous_scene=previous_scene, form=form)
+                    scene, sc_num, ch_num, plan,
+                    previous_scene=previous_scene, form=form)
                 form_text.append(generated_scene)
                 sc_num += 1
     return form_text
