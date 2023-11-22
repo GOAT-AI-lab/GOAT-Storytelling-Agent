@@ -5,7 +5,7 @@ import json
 import requests
 import traceback
 
-from goat_storytelling_agent import prompts, utils
+from goat_storytelling_agent import utils
 from goat_storytelling_agent.plan import Plan
 
 
@@ -32,7 +32,8 @@ def generate_prompt_parts(
 
 
 def _query_chat_hf(endpoint, messages, tokenizer, retries=3,
-                   request_timeout=120, max_tokens=4096, extra_options={}):
+                   request_timeout=120, max_tokens=4096,
+                   extra_options={'do_sample': True}):
     prompt = ''.join(generate_prompt_parts(messages))
     tokens = tokenizer(prompt, add_special_tokens=True,
                        truncation=False)['input_ids']
@@ -40,10 +41,11 @@ def _query_chat_hf(endpoint, messages, tokenizer, retries=3,
         "inputs": prompt,
         "parameters": {
             'max_new_tokens': max_tokens - len(tokens),
-            'do_sample': True
+            **extra_options
         }
     }
     headers = {'Content-Type': 'application/json'}
+
     while retries > 0:
         try:
             response = requests.post(
@@ -123,8 +125,9 @@ def _query_chat_llamacpp(endpoint, messages, retries=3, request_timeout=120,
 
 
 class StoryAgent:
-    def __init__(self, form='novel', backend="hf", backend_uri=None,
+    def __init__(self, backend="hf", backend_uri=None,
                  request_timeout=120, max_tokens=4096, n_crop_previous=400,
+                 prompt_engine=None, form='novel',
                  extra_options={}, scene_extra_options={}):
 
         self.backend = backend.lower()
@@ -135,6 +138,12 @@ class StoryAgent:
             from transformers import LlamaTokenizerFast
             self.tokenizer = LlamaTokenizerFast.from_pretrained(
                 "GOAT-AI/GOAT-70B-Storytelling")
+
+        if prompt_engine is None:
+            from goat_storytelling_agent import prompts
+            self.prompt_engine = prompts
+        else:
+            self.prompt_engine = prompt_engine
 
         self.form = form
         self.max_tokens = max_tokens
@@ -158,9 +167,9 @@ class StoryAgent:
                 max_tokens=self.max_tokens, extra_options=self.extra_options)
         return result
 
-    @staticmethod
-    def parse_book_spec(text_spec, fields=prompts.book_spec_fields):
+    def parse_book_spec(self, text_spec):
         # Initialize book spec dict with empty fields
+        fields = self.prompt_engine.book_spec_fields
         spec_dict = {field: '' for field in fields}
         last_field = None
         if "\"\"\"" in text_spec[:int(len(text_spec)/2)]:
@@ -204,21 +213,21 @@ class StoryAgent:
         str
             Book specification text
         """
-        messages = prompts.init_book_spec_messages(topic, self.form)
+        messages = self.prompt_engine.init_book_spec_messages(topic, self.form)
         text_spec = self.query_chat(messages)
         spec_dict = self.parse_book_spec(text_spec)
 
         text_spec = "\n".join(f"{key}: {value}"
                               for key, value in spec_dict.items())
         # Check and fill in missing fields
-        for field in prompts.book_spec_fields:
+        for field in self.prompt_engine.book_spec_fields:
             while not spec_dict[field]:
-                messages = prompts.init_book_spec_messages(topic, self.form,
-                                                           field=field)
+                messages = self.prompt_engine.init_book_spec_messages(
+                    topic, self.form, field=field)
                 messages[1]['content'] = (
-                    f'{prompts.missing_field_prompt[0]}{field}'
-                    f'{prompts.missing_field_prompt[1]}{text_spec}'
-                    f'{prompts.missing_field_prompt[2]}')
+                    f'{self.prompt_engine.missing_field_prompt[0]}{field}'
+                    f'{self.prompt_engine.missing_field_prompt[1]}{text_spec}'
+                    f'{self.prompt_engine.missing_field_prompt[2]}')
                 missing_part = self.query_chat(messages)
                 key, sep, value = missing_part.partition(':')
                 if key.lower().strip() == field.lower().strip():
@@ -242,13 +251,14 @@ class StoryAgent:
         str
             Book specification text
         """
-        messages = prompts.enhance_book_spec_messages(book_spec, self.form)
+        messages = self.prompt_engine.enhance_book_spec_messages(
+            book_spec, self.form)
         text_spec = self.query_chat(messages)
         spec_dict_old = self.parse_book_spec(book_spec)
         spec_dict_new = self.parse_book_spec(text_spec)
 
         # Check and fill in missing fields
-        for field in prompts.book_spec_fields:
+        for field in self.prompt_engine.book_spec_fields:
             if not spec_dict_new[field]:
                 spec_dict_new[field] = spec_dict_old[field]
 
@@ -271,7 +281,7 @@ class StoryAgent:
         dict
             Dict with book plan
         """
-        messages = prompts.create_plot_chapters_messages(book_spec, self.form)
+        messages = self.prompt_engine.create_plot_chapters_messages(book_spec, self.form)
         plan = []
         while not plan:
             text_plan = self.query_chat(messages)
@@ -299,7 +309,7 @@ class StoryAgent:
         text_plan = Plan.plan_2_str(plan)
         all_messages = []
         for act_num in range(3):
-            messages = prompts.enhance_plot_chapters_messages(
+            messages = self.prompt_engine.enhance_plot_chapters_messages(
                 act_num, text_plan, book_spec, self.form)
             act = self.query_chat(messages)
             if act:
@@ -337,7 +347,7 @@ class StoryAgent:
         for i, act in enumerate(plan, start=1):
             text_act, chs = Plan.act_2_str(plan, i)
             act_chapters[i] = chs
-            messages = prompts.split_chapters_into_scenes_messages(
+            messages = self.prompt_engine.split_chapters_into_scenes_messages(
                 i, text_act, self.form)
             act_scenes = self.query_chat(messages)
             act['act_scenes'] = act_scenes
@@ -422,11 +432,12 @@ class StoryAgent:
             Generated scene text
         """
         text_plan = Plan.plan_2_str(plan)
-        messages = prompts.scene_messages(scene, sc_num, ch_num, text_plan, self.form)
+        messages = self.prompt_engine.scene_messages(
+            scene, sc_num, ch_num, text_plan, self.form)
         if previous_scene:
             previous_scene = utils.keep_last_n_words(previous_scene,
                                                      n=self.n_crop_previous)
-            messages[1]['content'] += f'{prompts.prev_scene_intro}\"\"\"{previous_scene}\"\"\"'
+            messages[1]['content'] += f'{self.prompt_engine.prev_scene_intro}\"\"\"{previous_scene}\"\"\"'
         generated_scene = self.query_chat(messages)
         generated_scene = self.prepare_scene_text(generated_scene)
         return messages, generated_scene
@@ -462,12 +473,12 @@ class StoryAgent:
             Generated scene continuation text
         """
         text_plan = Plan.plan_2_str(plan)
-        messages = prompts.scene_messages(scene, sc_num, ch_num,
-                                          text_plan, self.form)
+        messages = self.prompt_engine.scene_messages(
+            scene, sc_num, ch_num, text_plan, self.form)
         if current_scene:
             current_scene = utils.keep_last_n_words(current_scene,
                                                     n=self.n_crop_previous)
-            messages[1]['content'] += f'{prompts.cur_scene_intro}\"\"\"{current_scene}\"\"\"'
+            messages[1]['content'] += f'{self.prompt_engine.cur_scene_intro}\"\"\"{current_scene}\"\"\"'
         generated_scene = self.query_chat(messages)
         generated_scene = self.prepare_scene_text(generated_scene)
         return messages, generated_scene
