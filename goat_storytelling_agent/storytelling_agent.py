@@ -125,8 +125,8 @@ def _query_chat_llamacpp(endpoint, messages, retries=3, request_timeout=120,
 
 
 class StoryAgent:
-    def __init__(self, backend="hf", backend_uri=None,
-                 request_timeout=120, max_tokens=4096, n_crop_previous=400,
+    def __init__(self, backend_uri, backend="hf", request_timeout=120,
+                 max_tokens=4096, n_crop_previous=400,
                  prompt_engine=None, form='novel',
                  extra_options={}, scene_extra_options={}):
 
@@ -330,10 +330,6 @@ class StoryAgent:
         ----------
         plan : Dict
             Dict with book plan
-        form : str, optional
-            A story form to create, by default 'novel'
-        query_chat : fn, optional
-            A function that sends queries to a text generation engine, by default _query_chat
 
         Returns
         -------
@@ -458,12 +454,6 @@ class StoryAgent:
             Dict with book plan
         current_scene : str, optional
             Text of the current scene so far, by default None
-        form : str, optional
-            A story form to create, by default 'novel'
-        query_chat : fn, optional
-            A function that sends queries to a text generation engine, by default _query_chat
-        n_crop_previous : int, optional
-            Number of words to leave for the current scene history, by default 400
 
         Returns
         -------

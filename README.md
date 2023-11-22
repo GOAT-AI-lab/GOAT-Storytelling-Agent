@@ -20,34 +20,35 @@ To demonstrate the capabilities of the agent, we release 20 novellas generated w
 
 ## Usage
 ### Generate a complete story from a topic (complete pipeline)
-The whole pipeline consists of an interplay between different story elements. A whole story can be generated from scratch using the general pipeline.
+The whole pipeline consists of an interplay between different story elements. A whole story can be generated from scratch using the general pipeline. Currently, `HF(TGI)` and `Llama.cpp` text generation backends are supported, but can be extended to any engine.
 
 ```python
-from goat_storytelling_agent import storytelling_agent as goat
+from goat_storytelling_agent.storytelling_agent import StoryAgent
 
-novel_scenes = goat.generate_story('treasure hunt in a jungle', form='novel')
+backend_uri = # Text generation endpoint
+writer = StoryAgent(backend_uri, form='novel')
+novel_scenes = writer.generate_story('treasure hunt in a jungle')
 ```
 
 Under the hood, `generate_story` performs following operations:
 ```python
-def generate_story(topic, form):
-    _, book_spec = init_book_spec(topic, form=form)
-    _, book_spec = enhance_book_spec(book_spec, form=form)
-    _, plan = create_plot_chapters(book_spec, form=form)
-    _, plan = enhance_plot_chapters(book_spec, plan, form=form)
-    _, plan = split_chapters_into_scenes(plan, form=form)
+msgs, book_spec = self.init_book_spec(topic)
+msgs, book_spec = self.enhance_book_spec(book_spec)
+msgs, plan = self.create_plot_chapters(book_spec)
+msgs, plan = self.enhance_plot_chapters(book_spec, plan)
+msgs, plan = self.split_chapters_into_scenes(plan)
 
-    form_text = []
-    for act in plan:
-        for ch_num, chapter in act['chapter_scenes'].items():
-            sc_num = 1
-            for scene in chapter:
-                previous_scene = form_text[-1] if form_text else None
-                _, generated_scene = write_a_scene(
-                    scene, sc_num, ch_num, plan, previous_scene=previous_scene, form=form)
-                form_text.append(generated_scene)
-                sc_num += 1
-    return form_text
+form_text = []
+for act in plan:
+    for ch_num, chapter in act['chapter_scenes'].items():
+        sc_num = 1
+        for scene in chapter:
+            previous_scene = form_text[-1] if form_text else None
+            _, generated_scene = self.write_a_scene(
+                scene, sc_num, ch_num, plan,
+                previous_scene=previous_scene)
+            form_text.append(generated_scene)
+            sc_num += 1
 ```
 
 Some of the steps will be reviewed in the examples below.
@@ -55,7 +56,7 @@ Some of the steps will be reviewed in the examples below.
 It is possible to break down the generation process and have a more granular control over the story. `init_book_spec` command takes a topic and comes up with a book description consisting of predefined fields - Genre, Place, Time, Theme, Tone, Point of View, Characters, Premise. It is possible to add your own fields and then pass the spec in subsequent stages.
 
 ```python
-message, book_spec = goat.init_book_spec(topic='treasure hunt in a jungle', 'novel')
+message, book_spec = writer.init_book_spec(topic='treasure hunt in a jungle')
 print(book_spec)
 ```
 ```output
@@ -72,7 +73,7 @@ Premise: Dr. Helen Carr uncovers a map to an ancient artifact believed to be dee
 ```python
 from goat_storytelling_agent.plan import Plan
 
-messages, plan = create_plot_chapters(book_spec, 'novel')
+messages, plan = writer.create_plot_chapters(book_spec)
 print(Plan.plan_2_str(plan))
 ```
 ```output
@@ -100,7 +101,7 @@ Act 3: Showdown and Epilogue
 ### Create a by-scene outline
 `split_chapters_into_scenes` takes the generated Plan object with chapter outlines and break each into scenes in a predefined format - Characters, Place, Time, Event, Conflct, Story value, Story value charge, Mood, Outcome.
 ```python
-messages, plan = goat.split_chapters_into_scenes(plan, 'novel')
+messages, plan = writer.split_chapters_into_scenes(plan)
 act_n = 0
 scene_n = 0
 chapter_n = 1
@@ -124,8 +125,8 @@ Outcome: A potential location of the priceless artifact is discovered.
 ### Generate scene text based on the plan
 Finally, it is possible to generate the scene text with `write_a_scene`. Sometimes the whole text would not fit into the context window, so there is a `continue_a_scene` function that continues the text for the same scene given the progress so far.
 ```python
-messages, generated_scene = goat.write_a_scene(scene_descr, sc_num+1, ch_num,
-                                               plan, previous_scene=None, form='novel')
+messages, generated_scene = writer.write_a_scene(
+    scene_descr, sc_num+1, ch_num, plan, previous_scene=None)
 ```
 ```
 Chapter 1: Unveiling Secrets
