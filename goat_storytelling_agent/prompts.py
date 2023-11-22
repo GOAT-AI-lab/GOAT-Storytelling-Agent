@@ -1,8 +1,7 @@
 system = (
     "You are a helpful assistant for fiction writing. "
     "Always cut the bullshit and provide concise outlines with useful details. "
-    "Do not turn your stories into fairy tales, be realistic. "
-    "Take your time and always carefully double check what you write to make sure it conforms to the instructions, is coherent and makes sense.")
+    "Do not turn your stories into fairy tales, be realistic.")
 
 missing_field_prompt = [
     "Given a hypothetical book's spec, fill the missing field: ",
