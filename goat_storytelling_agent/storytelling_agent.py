@@ -34,6 +34,7 @@ def generate_prompt_parts(
 def _query_chat_hf(endpoint, messages, tokenizer, retries=3,
                    request_timeout=120, max_tokens=4096,
                    extra_options={'do_sample': True}):
+    endpoint = endpoint.rstrip('/')
     prompt = ''.join(generate_prompt_parts(messages))
     tokens = tokenizer(prompt, add_special_tokens=True,
                        truncation=False)['input_ids']
@@ -49,7 +50,7 @@ def _query_chat_hf(endpoint, messages, tokenizer, retries=3,
     while retries > 0:
         try:
             response = requests.post(
-                endpoint, headers=headers, data=json.dumps(data),
+                f"{endpoint}/generate", headers=headers, data=json.dumps(data),
                 timeout=request_timeout)
             if messages and messages[-1]["role"] == "assistant":
                 result_prefix = messages[-1]["content"]
@@ -69,6 +70,7 @@ def _query_chat_hf(endpoint, messages, tokenizer, retries=3,
 
 def _query_chat_llamacpp(endpoint, messages, retries=3, request_timeout=120,
                          max_tokens=4096, extra_options={}):
+    endpoint = endpoint.rstrip('/')
     headers = {'Content-Type': 'application/json'}
     prompt = ''.join(generate_prompt_parts(messages))
     print(f"\n\n========== Submitting prompt: >>\n{prompt}", end="")
@@ -87,7 +89,7 @@ def _query_chat_llamacpp(endpoint, messages, retries=3, request_timeout=120,
     jdata = json.dumps(data)
     request_kwargs = dict(headers=headers, data=jdata,
                           timeout=request_timeout, stream=True)
-    response = requests.post(f"{endpoint}completion", **request_kwargs)
+    response = requests.post(f"{endpoint}/completion", **request_kwargs)
     result = bytearray()
     if messages and messages[-1]["role"] == "assistant":
         result += messages[-1]["content"].encode("utf-8")
@@ -98,12 +100,12 @@ def _query_chat_llamacpp(endpoint, messages, retries=3, request_timeout=120,
             continue
         if line.startswith(b"error:"):
             retries -= 1
-            print("\nError(retry={retries}): {line!r}")
+            print(f"\nError(retry={retries}): {line!r}")
             if retries < 0:
                 break
             del response
             time.sleep(5)
-            response = requests.post(f"{endpoint}completion", **request_kwargs)
+            response = requests.post(f"{endpoint}/completion", **request_kwargs)
             is_first = True
             result.clear()
             continue
