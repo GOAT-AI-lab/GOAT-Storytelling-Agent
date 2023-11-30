@@ -3,11 +3,6 @@ system = (
     "Always cut the bullshit and provide concise outlines with useful details. "
     "Do not turn your stories into fairy tales, be realistic.")
 
-missing_field_prompt = [
-    "Given a hypothetical book's spec, fill the missing field: ",
-    ". Return only field, separator and value in one line like \"Field: value\".\nBook spec: \n\"\"\"",
-    "\"\"\""]
-
 book_spec_fields = ['Genre', 'Place', 'Time', 'Theme',
                     'Tone', 'Point of View', 'Characters', 'Premise']
 
@@ -22,7 +17,7 @@ book_spec_format = (
     "Premise: describe some concrete events already")
 
 scene_spec_format = (
-    "Chapter [number]:\nScene [number]:\nCharacters: character list\nPlace: place\nTime: absolute or relative time\Event: what happens\nConflict: scene micro-conflict\n"
+    "Chapter [number]:\nScene [number]:\nCharacters: character list\nPlace: place\nTime: absolute or relative time\nEvent: what happens\nConflict: scene micro-conflict\n"
     "Story value: story value affected by the scene\nStory value charge: the charge of story value by the end of the scene (positive or negative)\nMood: mood\nOutcome: the result.")
 
 prev_scene_intro = "\n\nHere is the ending of the previous scene:\n"
@@ -35,6 +30,19 @@ def init_book_spec_messages(topic, form):
         {"role": "user",
          "content": f"Given the topic, come up with a specification to write a {form}. Write spec using the format below. "
                     f"Topic: {topic}\nFormat:\n\"\"\"\n{book_spec_format}\"\"\""},
+    ]
+    return messages
+
+
+def missing_book_spec_messages(field, text_spec):
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user",
+         "content": (
+            f"Given a hypothetical book spec, fill the missing field: {field}."
+            f'Return only field, separator and value in one line like "Field: value".\n'
+            f'Book spec:\n"""{text_spec}"""')
+        }
     ]
     return messages
 
