@@ -222,12 +222,8 @@ class StoryAgent:
         # Check and fill in missing fields
         for field in self.prompt_engine.book_spec_fields:
             while not spec_dict[field]:
-                messages = self.prompt_engine.init_book_spec_messages(
-                    topic, self.form, field=field)
-                messages[1]['content'] = (
-                    f'{self.prompt_engine.missing_field_prompt[0]}{field}'
-                    f'{self.prompt_engine.missing_field_prompt[1]}{text_spec}'
-                    f'{self.prompt_engine.missing_field_prompt[2]}')
+                messages = self.prompt_engine.missing_book_spec_messages(
+                    field, text_spec)
                 missing_part = self.query_chat(messages)
                 key, sep, value = missing_part.partition(':')
                 if key.lower().strip() == field.lower().strip():
