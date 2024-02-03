@@ -170,6 +170,33 @@ def _query_chat_koboldcpp(endpoint, messages, retries=3,
         return ''
 
 
+def kobold_max_tokencount(endpoint, request_timeout=120):
+    """
+    Retrieve the actual max context length setting value set from the KoboldCpp launcher
+    """
+    endpoint = endpoint.rstrip('/')
+    headers = {'Content-Type': 'application/json'}
+    response = requests.get(
+        f"{endpoint}/extra/true_max_context_length",
+        headers=headers,
+        timeout=request_timeout, stream=False)
+    max_tokens = response.json()["value"]
+    return max_tokens
+
+def kobold_retrieve_perf(endpoint, request_timeout=120):
+    """
+    Retrieve the KoboldCpp recent performance information
+    Useful to check whether an EOS token had been triggered, resulting in complete generation of output
+    """
+    endpoint = endpoint.rstrip('/')
+    headers = {'Content-Type': 'application/json'}
+    response = requests.get(
+        f"{endpoint}/extra/perf",
+        headers=headers,
+        timeout=request_timeout, stream=False)
+    return response.json()
+
+
 class StoryAgent:
     def __init__(self, backend_uri, backend="hf", request_timeout=120,
                  max_tokens=4096, n_crop_previous=400,
