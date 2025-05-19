@@ -9,7 +9,7 @@ from goat_storytelling_agent import utils
 from goat_storytelling_agent.plan import Plan
 
 
-SUPPORTED_BACKENDS = ["hf", "llama.cpp"]
+SUPPORTED_BACKENDS = ["hf", "llama.cpp", "koboldcpp"] # MODIFIED
 
 
 def generate_prompt_parts(
@@ -32,7 +32,7 @@ def generate_prompt_parts(
 
 
 def _query_chat_hf(endpoint, messages, tokenizer, retries=3,
-                   request_timeout=120, max_tokens=4096,
+                   request_timeout=None, max_tokens=4096,
                    extra_options={'do_sample': True}):
     endpoint = endpoint.rstrip('/')
     prompt = ''.join(generate_prompt_parts(messages))
@@ -68,7 +68,7 @@ def _query_chat_hf(endpoint, messages, tokenizer, retries=3,
         return ''
 
 
-def _query_chat_llamacpp(endpoint, messages, retries=3, request_timeout=120,
+def _query_chat_llamacpp(endpoint, messages, retries=3, request_timeout=None,
                          max_tokens=4096, extra_options={}):
     endpoint = endpoint.rstrip('/')
     headers = {'Content-Type': 'application/json'}
@@ -125,21 +125,90 @@ def _query_chat_llamacpp(endpoint, messages, retries=3, request_timeout=120,
     print("\nDone reading response.")
     return str(result, encoding="utf-8").strip()
 
+# NEW FUNCTION for KoboldCPP
+def _query_chat_koboldcpp(endpoint, messages, retries=3, request_timeout=None,
+                          max_tokens=4096, extra_options={}):
+    """
+    Sends a request to a KoboldCPP API endpoint.
+    Assumes KoboldCPP is running on http://localhost:5001/v1/ and uses /api/v1/generate
+    You might need to adjust the endpoint and payload based on your KoboldCPP setup.
+    """
+    # Default KoboldCPP API endpoint
+    if not endpoint.startswith(('http://', 'https://')):
+        # Assuming default localhost if no scheme is provided
+        endpoint = f"http://localhost:5001/v1/api/v1/generate"
+    else:
+        endpoint = endpoint.rstrip('/') + "/v1/api/v1/generate"
+
+
+    prompt = ''.join(generate_prompt_parts(messages))
+    # Basic payload structure for KoboldCPP, adjust as needed
+    data = {
+        "prompt": prompt,
+        "max_context_length": 10360, # Or a relevant KoboldCPP parameter for context size
+        "max_length": extra_options.get('max_new_tokens', 4096), # Or a relevant KoboldCPP parameter for generation length
+        **extra_options
+        # Ensure other parameters in extra_options are compatible with KoboldCPP
+    }
+    headers = {'Content-Type': 'application/json'}
+
+    print(f"\n\n========== Submitting prompt to KoboldCPP: >>\n{prompt}", end="")
+    sys.stdout.flush()
+
+    while retries > 0:
+        try:
+            response = requests.post(endpoint, headers=headers, data=json.dumps(data), timeout=request_timeout)
+            response.raise_for_status() # Raise an exception for HTTP errors
+            
+            if messages and messages[-1]["role"] == "assistant":
+                result_prefix = messages[-1]["content"]
+            else:
+                result_prefix = ''
+            
+            # KoboldCPP typically returns JSON with a 'results' list containing a 'text' field
+            # Example: {"results": [{"text": "..."}]}
+            # Adjust this based on the actual API response structure of your KoboldCPP version
+            generated_text = result_prefix + response.json()['results'][0]['text']
+            print("<<|", end="")
+            sys.stdout.flush()
+            print(generated_text[len(result_prefix):]) # Print only the newly generated part
+            sys.stdout.flush()
+            print("\nDone reading response from KoboldCPP.")
+            return generated_text.strip()
+        except requests.exceptions.RequestException as e:
+            traceback.print_exc()
+            print(f'Error connecting to KoboldCPP: {e}, retrying...')
+            retries -= 1
+            time.sleep(5)
+        except (KeyError, IndexError) as e:
+            traceback.print_exc()
+            print(f'Error parsing KoboldCPP response: {e}. Response text: {response.text}')
+            return '' # Or handle more gracefully
+        except Exception:
+            traceback.print_exc()
+            print('An unexpected error occurred, retrying...')
+            retries -= 1
+            time.sleep(5)
+    else:
+        print('Failed to get response from KoboldCPP after multiple retries.')
+        return ''
+
 
 class StoryAgent:
-    def __init__(self, backend_uri, backend="hf", request_timeout=120,
+    def __init__(self, backend_uri, backend="hf", request_timeout=None,
                  max_tokens=4096, n_crop_previous=400,
                  prompt_engine=None, form='novel',
                  extra_options={}, scene_extra_options={}):
 
         self.backend = backend.lower()
         if self.backend not in SUPPORTED_BACKENDS:
-            raise ValueError("Unknown backend")
+            raise ValueError(f"Unknown backend: {self.backend}. Supported backends are: {SUPPORTED_BACKENDS}") # MODIFIED for clarity
 
         if self.backend == "hf":
             from transformers import LlamaTokenizerFast
             self.tokenizer = LlamaTokenizerFast.from_pretrained(
                 "GOAT-AI/GOAT-70B-Storytelling")
+        # No specific tokenizer needed for KoboldCPP as it expects plain text prompt
 
         if prompt_engine is None:
             from goat_storytelling_agent import prompts
@@ -152,7 +221,7 @@ class StoryAgent:
         self.extra_options = extra_options
         self.scene_extra_options = extra_options.copy()
         self.scene_extra_options.update(scene_extra_options)
-        self.backend_uri = backend_uri
+        self.backend_uri = backend_uri # For KoboldCPP, this should be the base URL e.g., http://localhost:5001
         self.n_crop_previous = n_crop_previous
         self.request_timeout = request_timeout
 
@@ -167,6 +236,13 @@ class StoryAgent:
                 self.backend_uri, messages, retries=retries,
                 request_timeout=self.request_timeout,
                 max_tokens=self.max_tokens, extra_options=self.extra_options)
+        elif self.backend == "koboldcpp": # MODIFIED
+            result = _query_chat_koboldcpp(
+                self.backend_uri, messages, retries=retries,
+                request_timeout=self.request_timeout,
+                max_tokens=self.max_tokens, extra_options=self.extra_options)
+        else: # Should not happen due to check in __init__
+            raise ValueError(f"Backend {self.backend} not implemented in query_chat.")
         return result
 
     def parse_book_spec(self, text_spec):

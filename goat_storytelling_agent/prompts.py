@@ -29,7 +29,8 @@ def init_book_spec_messages(topic, form):
         {"role": "system", "content": system},
         {"role": "user",
          "content": f"Given the topic, come up with a specification to write a {form}. Write spec using the format below. "
-                    f"Topic: {topic}\nFormat:\n\"\"\"\n{book_spec_format}\"\"\""},
+                    f"Topic: {topic}\nFormat:\n\"\"\"\n{book_spec_format}\"\"\""}
+                    f"d",
     ]
     return messages
 
