@@ -130,16 +130,12 @@ def _query_chat_koboldcpp(endpoint, messages, retries=3, request_timeout=None,
                           max_tokens=4096, extra_options={}):
     """
     Sends a request to a KoboldCPP API endpoint.
-    Assumes KoboldCPP is running on http://localhost:5001/v1/ and uses /api/v1/generate
+    Assumes KoboldCPP is running on http://localhost:5001/ and uses /api/v1/generate
     You might need to adjust the endpoint and payload based on your KoboldCPP setup.
     """
-    # Default KoboldCPP API endpoint
-    if not endpoint.startswith(('http://', 'https://')):
-        # Assuming default localhost if no scheme is provided
-        endpoint = f"http://localhost:5001/v1/api/v1/generate"
-    else:
-        endpoint = endpoint.rstrip('/') + "/v1/api/v1/generate"
-
+    # Construct the full API endpoint
+    # self.backend_uri (passed as endpoint) is expected to be the base URI, e.g., http://localhost:5001
+    endpoint = endpoint.rstrip('/') + "/api/v1/generate"
 
     prompt = ''.join(generate_prompt_parts(messages))
     # Basic payload structure for KoboldCPP, adjust as needed
@@ -168,7 +164,32 @@ def _query_chat_koboldcpp(endpoint, messages, retries=3, request_timeout=None,
             # KoboldCPP typically returns JSON with a 'results' list containing a 'text' field
             # Example: {"results": [{"text": "..."}]}
             # Adjust this based on the actual API response structure of your KoboldCPP version
-            generated_text = result_prefix + response.json()['results'][0]['text']
+            response_data = response.json()
+
+            if not isinstance(response_data, dict):
+                print(f'Error: KoboldCPP response JSON is not a dictionary. Response text: {response.text}')
+                return result_prefix
+            
+            results = response_data.get('results')
+            if not isinstance(results, list):
+                print(f"Error: KoboldCPP response missing 'results' list or 'results' is not a list. Response text: {response.text}")
+                return result_prefix
+
+            if not results:
+                print(f"Error: KoboldCPP 'results' list is empty. Response text: {response.text}")
+                return result_prefix
+
+            first_result = results[0]
+            if not isinstance(first_result, dict):
+                print(f"Error: KoboldCPP first result in 'results' list is not a dictionary. Response text: {response.text}")
+                return result_prefix
+
+            text = first_result.get('text')
+            if text is None: # Check for None explicitly, as empty string is a valid text
+                print(f"Error: KoboldCPP first result in 'results' list missing 'text' key. Response text: {response.text}")
+                return result_prefix
+
+            generated_text = result_prefix + text
             print("<<|", end="")
             sys.stdout.flush()
             print(generated_text[len(result_prefix):]) # Print only the newly generated part
@@ -180,7 +201,11 @@ def _query_chat_koboldcpp(endpoint, messages, retries=3, request_timeout=None,
             print(f'Error connecting to KoboldCPP: {e}, retrying...')
             retries -= 1
             time.sleep(5)
-        except (KeyError, IndexError) as e:
+        except json.JSONDecodeError as e: # Specific catch for JSON parsing errors
+            traceback.print_exc()
+            print(f'Error decoding KoboldCPP JSON response: {e}. Response text: {response.text}')
+            return '' # Or result_prefix, depending on desired behavior for malformed JSON
+        except (KeyError, IndexError) as e: # Fallback for other unexpected structure issues
             traceback.print_exc()
             print(f'Error parsing KoboldCPP response: {e}. Response text: {response.text}')
             return '' # Or handle more gracefully
@@ -294,6 +319,8 @@ class StoryAgent:
         messages = self.prompt_engine.init_book_spec_messages(topic, self.form)
         text_spec = self.query_chat(messages)
         spec_dict = self.parse_book_spec(text_spec)
+        if not spec_dict or (isinstance(spec_dict, dict) and not any(spec_dict.values())):
+            print(f"Warning: parse_book_spec returned empty or all-empty-value dictionary from text: {text_spec[:200]}...")
 
         text_spec = "\n".join(f"{key}: {value}"
                               for key, value in spec_dict.items())
@@ -330,6 +357,8 @@ class StoryAgent:
         text_spec = self.query_chat(messages)
         spec_dict_old = self.parse_book_spec(book_spec)
         spec_dict_new = self.parse_book_spec(text_spec)
+        if not spec_dict_new or (isinstance(spec_dict_new, dict) and not any(spec_dict_new.values())):
+            print(f"Warning: parse_book_spec (in enhance_book_spec) returned empty or all-empty-value dictionary from text: {text_spec[:200]}...")
 
         # Check and fill in missing fields
         for field in self.prompt_engine.book_spec_fields:
@@ -361,6 +390,8 @@ class StoryAgent:
             text_plan = self.query_chat(messages)
             if text_plan:
                 plan = Plan.parse_text_plan(text_plan)
+                if text_plan and not plan:
+                    print(f"Warning: Plan.parse_text_plan failed to parse plot chapters from non-empty LLM output: {text_plan[:200]}...")
         return messages, plan
 
     def enhance_plot_chapters(self, book_spec, plan):
@@ -388,9 +419,20 @@ class StoryAgent:
             act = self.query_chat(messages)
             if act:
                 act_dict = Plan.parse_act(act)
-                while len(act_dict['chapters']) < 2:
+                if act and (not act_dict or not act_dict.get('chapters')):
+                    print(f"Warning: Plan.parse_act failed to parse adequate act details for act {act_num + 1} from non-empty LLM output: {act[:200]}...")
+                while len(act_dict.get('chapters', [])) < 2: # Use .get for safety
                     act = self.query_chat(messages)
                     act_dict = Plan.parse_act(act)
+                    # Also add the check here in case the retry is needed
+                    if act and (not act_dict or not act_dict.get('chapters')):
+                        print(f"Warning: Plan.parse_act (retry) failed to parse adequate act details for act {act_num + 1} from non-empty LLM output: {act[:200]}...")
+                        # If retry also fails to produce a valid act_dict, break to avoid infinite loop, or handle error appropriately.
+                        # For now, if it's still bad, the outer loop condition `len(act_dict.get('chapters', [])) < 2` might still hold.
+                        # Adding a break if act_dict remains problematic after retry.
+                        if not act_dict or not act_dict.get('chapters'):
+                            print(f"Critical Warning: Plan.parse_act (retry) still failed for act {act_num + 1}. Skipping further retries for this act.")
+                            break 
                 else:
                     plan[act_num] = act_dict
                 text_plan = Plan.plan_2_str(plan)
@@ -432,6 +474,8 @@ class StoryAgent:
                         if (text and text.strip())]
             current_ch = None
             merged_chapters = {}
+            if act_scenes and not chapters and not merged_chapters: # Check merged_chapters too, as it might be populated from a previous iteration/logic
+                print(f"Warning: Failed to split act into chapters from text: {act.get('act_scenes', '')[:200]}...")
             for snippet in chapters:
                 if snippet.isnumeric():
                     ch_num = int(snippet)
@@ -450,6 +494,8 @@ class StoryAgent:
                 scenes = [text.strip() for text in scenes[1:]
                           if (text and (len(text.split()) > 3))]
                 if not scenes:
+                    if chapter.strip(): # Only warn if the chapter text itself wasn't empty
+                        print(f"Warning: Failed to parse scenes for chapter {ch_num} from non-empty text: {chapter[:100]}...")
                     continue
                 act['chapter_scenes'][ch_num] = scenes
         return all_messages, plan

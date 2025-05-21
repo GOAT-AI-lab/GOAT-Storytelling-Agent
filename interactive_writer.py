@@ -20,9 +20,9 @@ except ImportError as e:
 OUTPUT_DIR = "story_pipeline_output"
 # กำหนดให้ใช้ KoboldCPP เป็นค่าเริ่มต้นเท่านั้น
 KOBOLDCPP_BACKEND_NAME = "koboldcpp"
-# URI เริ่มต้นสำหรับ KoboldCPP: ใช้ค่าจาก config.py ถ้ามี, มิฉะนั้นใช้ http://localhost:5001/v1/
+# URI เริ่มต้นสำหรับ KoboldCPP: ใช้ค่าจาก config.py ถ้ามี, มิฉะนั้นใช้ http://localhost:5001
 # นี่จะเป็นค่าหลักที่ใช้โดยไม่มีการถามผู้ใช้ เว้นแต่จะถูก override โดย config.py
-FIXED_KOBOLDCPP_URI = ENDPOINT if ENDPOINT else "http://localhost:5001/v1/"
+FIXED_KOBOLDCPP_URI = ENDPOINT if ENDPOINT else "http://localhost:5001"
 
 # --- ฟังก์ชันช่วยเหลือ ---
 def setup_output_dir():
@@ -94,13 +94,11 @@ def main_interactive_pipeline():
     
     # --- ข้อควรระวังเกี่ยวกับ URI และ _query_chat_koboldcpp ---
     print("\n!!! ข้อควรระวัง !!!")
-    print(f"สคริปต์นี้จะใช้ URI: {backend_uri_choice} สำหรับ KoboldCPP")
-    print("โปรดตรวจสอบฟังก์ชัน `_query_chat_koboldcpp` ในไฟล์ `goat_storytelling_agent/storytelling_agent.py`:")
-    print("  - ฟังก์ชันนั้นอาจมีการต่อท้าย path ของ API (เช่น '/api/v1/generate' หรือ '/generate') เข้ากับ URI ที่ระบุ")
-    print(f"  - หาก URI '{backend_uri_choice}' เป็น endpoint ที่สมบูรณ์แล้ว (รวม path สำหรับการ generate text แล้ว)")
-    print("    คุณอาจจะต้องแก้ไข `_query_chat_koboldcpp` เพื่อไม่ให้มีการต่อท้าย path เพิ่มเติมโดยไม่จำเป็น")
-    print("  - ตัวอย่างเช่น หาก API endpoint ของคุณคือ 'http://localhost:5001/v1/generate' และ URI ที่ตั้งค่าไว้คือ 'http://localhost:5001/v1/'")
-    print("    ฟังก์ชัน `_query_chat_koboldcpp` ควรจะต่อท้ายเพียง '/generate' หรือปรับเปลี่ยนตามความเหมาะสม")
+    # print(f"สคริปต์นี้จะใช้ URI: {backend_uri_choice} สำหรับ KoboldCPP") # Commented out as the new message below includes this info
+    print(f"  - สคริปต์นี้จะใช้ URI: {backend_uri_choice} เป็น Base URI สำหรับ KoboldCPP (เช่น http://localhost:5001)")
+    print(f"  - ฟังก์ชัน `_query_chat_koboldcpp` ในไฟล์ `goat_storytelling_agent/storytelling_agent.py` จะทำการต่อท้าย '/api/v1/generate' เข้ากับ Base URI นี้โดยอัตโนมัติ")
+    print(f"  - โปรดตรวจสอบว่า URI ที่ระบุใน `goat_storytelling_agent/config.py` (หรือค่าเริ่มต้น '{FIXED_KOBOLDCPP_URI}') ถูกต้องและเป็น Base URI จริง (ไม่ต้องมี /v1 หรือ /api ต่อท้าย)")
+    print("  - คุณไม่จำเป็นต้องแก้ไขฟังก์ชัน `_query_chat_koboldcpp` เกี่ยวกับการต่อท้าย path อีกต่อไป หาก URI ถูกตั้งค่าเป็น Base URI อย่างถูกต้อง")
     input("กด Enter เพื่อดำเนินการต่อ...\n")
     # --- สิ้นสุดข้อควรระวัง ---
 
@@ -177,6 +175,8 @@ def main_interactive_pipeline():
                 plan_initial_str_gen = Plan.plan_2_str(plan_initial_obj_gen)
                 plan_initial_obj_str_edited = save_and_prompt(plan_initial_str_gen, filename_s3_txt, data_type="text")
                 if plan_initial_obj_str_edited: plan_initial_obj = Plan.parse_text_plan(plan_initial_obj_str_edited)
+            else:
+                print(f"คำเตือน: การสร้างโครงเรื่องเบื้องต้น (agent.create_plot_chapters) ไม่ได้คืนข้อมูลใดๆ สำหรับหัวข้อ: '{topic}'")
 
     current_plan_obj = plan_initial_obj
     if not current_plan_obj:
@@ -212,6 +212,8 @@ def main_interactive_pipeline():
                 plan_enhanced_str_gen = Plan.plan_2_str(plan_enhanced_obj_gen)
                 plan_enhanced_str_edited = save_and_prompt(plan_enhanced_str_gen, filename_s4_txt, data_type="text")
                 if plan_enhanced_str_edited: plan_enhanced_obj = Plan.parse_text_plan(plan_enhanced_str_edited)
+            else:
+                print(f"คำเตือน: การปรับปรุงโครงเรื่อง (agent.enhance_plot_chapters) ไม่ได้คืนข้อมูลใดๆ")
 
     current_plan_obj = plan_enhanced_obj
     if not current_plan_obj:
@@ -232,6 +234,8 @@ def main_interactive_pipeline():
         _, plan_with_scenes_obj_gen = agent.split_chapters_into_scenes(current_plan_obj)
         if plan_with_scenes_obj_gen:
             plan_with_scenes_obj = save_and_prompt(plan_with_scenes_obj_gen, filename_s5_json, data_type="json")
+        else:
+            print(f"คำเตือน: การแบ่ง Chapter ออกเป็น Scene (agent.split_chapters_into_scenes) ไม่ได้คืนข้อมูลใดๆ")
 
     if not plan_with_scenes_obj:
         print("เกิดข้อผิดพลาด: ไม่สามารถสร้างหรือโหลด Plan with Scenes ได้ สิ้นสุดการทำงาน")

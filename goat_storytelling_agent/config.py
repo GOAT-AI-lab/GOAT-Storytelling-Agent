@@ -1,1 +1,1 @@
-ENDPOINT = 'http://localhost:5001/v1/' # หรือ URL อื่นๆ ที่ KoboldCPP ของคุณทำงานอยู่
+ENDPOINT = 'http://localhost:5001' # Base URI for KoboldCPP, e.g., http://localhost:5001. The agent will append /api/v1/generate automatically. (หรือ URL อื่นๆ ที่ KoboldCPP ของคุณทำงานอยู่ โดยไม่ต้องมี /v1/ หรือ path อื่นๆ ต่อท้าย)
