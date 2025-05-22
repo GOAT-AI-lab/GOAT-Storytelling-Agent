@@ -1,7 +1,8 @@
 system = (
     "You are a helpful assistant for fiction writing. "
-    "Always cut the bullshit and provide concise outlines with useful details. "
-    "Do not turn your stories into fairy tales, be realistic.")
+    "Provide direct, concise outlines with useful details. Adhere strictly to requested formats. "
+    "Ensure outputs are grounded and internally consistent with the specified genre, "
+    "avoiding overly fantastical or unrealistic elements unless appropriate for the genre.")
 
 book_spec_fields = ['Genre', 'Place', 'Time', 'Theme',
                     'Tone', 'Point of View', 'Characters', 'Premise']
@@ -14,7 +15,7 @@ book_spec_format = (
     "Tone: tone\n"
     "Point of View: POV\n"
     "Characters: use specific names already\n"
-    "Premise: describe some concrete events already")
+    "Premise: Describe concrete events, focusing on exciting situations, complex relationships, and potentially scandalous or unconventional choices, in the style of a show like 'Californication'. Think about affairs, unexpected entanglements, and character-driven drama.")
 
 scene_spec_format = (
     "Chapter [number]:\nScene [number]:\nCharacters: character list\nPlace: place\nTime: absolute or relative time\nEvent: what happens\nConflict: scene micro-conflict\n"
@@ -28,8 +29,9 @@ def init_book_spec_messages(topic, form):
     messages = [
         {"role": "system", "content": system},
         {"role": "user",
-         "content": f"Given the topic, come up with a specification to write a {form}. Write spec using the format below. "
-                    f"Topic: {topic}\nFormat:\n\"\"\"\n{book_spec_format}\"\"\""},
+         "content": f"Given the topic, come up with a specification to write a {form}. "
+                    f"Strictly follow the format below, ensuring all fields are present.\n"
+                    f"Topic: {topic}\nFormat:\n\"\"\"\n{book_spec_format}\"\"\""}
     ]
     return messages
 
@@ -61,6 +63,7 @@ def enhance_book_spec_messages(book_spec, form):
 
 def create_plot_chapters_messages(book_spec, form):
     messages = [
+        {"role": "system", "content": system},
         {"role": "user", "content": (
             f"Come up with a plot for a bestseller-grade {form} in 3 acts taking inspiration from its description. "
             "Break down the plot into chapters using the following structure:\nActs\n- Chapters\n\n"
@@ -84,9 +87,13 @@ def split_chapters_into_scenes_messages(act_num, text_act, form):
     messages = [
         {"role": "system", "content": system},
         {"role": "user", "content": (
-            f"Break each chapter in Act {act_num} into scenes (number depends on how packed a chapter is), give scene specifications for each.\n"
+            f"Break each chapter in Act {act_num} into scenes (number depends on how packed a chapter is). "
+            f"For each scene, provide specifications strictly adhering to the format below, ensuring all fields are included for every scene.\n"
             f"Here is the by-chapter plot summary for the act in a {form}:\n\"\"\"{text_act}\"\"\"\n\n"
-            f"Scene spec format:\n\"\"\"{scene_spec_format}\"\"\"")}
+            f"Scene spec format:\n\"\"\"{scene_spec_format}\"\"\"\n\n"
+            f"For example, a single scene specification should look like this (ensure all fields are present):\n"
+            f"Chapter 1:\nScene 1:\nCharacters: Character A, Character B\nPlace: A dark forest\nTime: Midnight\nEvent: Character A finds a mysterious object.\nConflict: Character B wants the object too.\n"
+            f"Story value: Mystery\nStory value charge: Positive\nMood: Suspenseful\nOutcome: Character A keeps the object, Character B is resentful.")}
     ]
     return messages
 
