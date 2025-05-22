@@ -15,7 +15,7 @@ book_spec_format = (
     "Tone: tone\n"
     "Point of View: POV\n"
     "Characters: use specific names already\n"
-    "Premise: describe some concrete events already")
+    "Premise: Describe concrete events, focusing on exciting situations, complex relationships, and potentially scandalous or unconventional choices, in the style of a show like 'Californication'. Think about affairs, unexpected entanglements, and character-driven drama.")
 
 scene_spec_format = (
     "Chapter [number]:\nScene [number]:\nCharacters: character list\nPlace: place\nTime: absolute or relative time\nEvent: what happens\nConflict: scene micro-conflict\n"
