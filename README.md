@@ -25,8 +25,8 @@ The whole pipeline consists of an interplay between different story elements. A 
 ```python
 from goat_storytelling_agent.storytelling_agent import StoryAgent
 
-backend_uri = # Text generation endpoint
-writer = StoryAgent(backend_uri, form='novel')
+backend_uri = 'http://localhost:8080' # specify your generation endpoint
+writer = StoryAgent(backend_uri, backend="llama.cpp", form='novel')
 novel_scenes = writer.generate_story('treasure hunt in a jungle')
 ```
 
