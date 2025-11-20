@@ -9,7 +9,7 @@ from goat_storytelling_agent import utils
 from goat_storytelling_agent.plan import Plan
 
 
-SUPPORTED_BACKENDS = ["hf", "llama.cpp"]
+SUPPORTED_BACKENDS = ["hf", "llama.cpp", "koboldcpp"]
 
 
 def generate_prompt_parts(
@@ -126,6 +126,77 @@ def _query_chat_llamacpp(endpoint, messages, retries=3, request_timeout=120,
     return str(result, encoding="utf-8").strip()
 
 
+def _query_chat_koboldcpp(endpoint, messages, retries=3,
+                          request_timeout=120, max_tokens=4096,
+                          extra_options={'temperature': 1}):
+    endpoint = endpoint.rstrip('/')
+    headers = {'Content-Type': 'application/json'}
+    prompt = ''.join(generate_prompt_parts(messages))
+    response = requests.post(
+            f"{endpoint}/extra/tokencount",
+            headers=headers,
+            data=json.dumps({"prompt": prompt}),
+            timeout=request_timeout, stream=False)
+    tokens_count = response.json()["value"]
+    print(f"\n\n========== Submitting prompt ({tokens_count} tokens): >>\n{prompt}", end="") #debug
+    data = {
+            "prompt": prompt,
+            "max_length": max_tokens - tokens_count,
+            **extra_options
+    }
+
+    while retries > 0:
+        try:
+            response = requests.post(
+                f"{endpoint}/v1/generate", headers=headers, data=json.dumps(data),
+                timeout=request_timeout)
+            if 'detail' in response.json():
+                print(f"\n{response.json()['detail']['msg']}", end="")
+                retries -= 1
+                time.sleep(10)
+            else:
+                if messages and messages[-1]["role"] == "assistant":
+                    result_prefix = messages[-1]["content"]
+                else:
+                    result_prefix = ''
+                generated_text = result_prefix + response.json()['results'][0]['text']
+                return generated_text
+        except Exception:
+            traceback.print_exc()
+            print('Timeout error, retrying...')
+            retries -= 1
+            time.sleep(5)
+    else:
+        return ''
+
+
+def kobold_max_tokencount(endpoint, request_timeout=120):
+    """
+    Retrieve the actual max context length setting value set from the KoboldCpp launcher
+    """
+    endpoint = endpoint.rstrip('/')
+    headers = {'Content-Type': 'application/json'}
+    response = requests.get(
+        f"{endpoint}/extra/true_max_context_length",
+        headers=headers,
+        timeout=request_timeout, stream=False)
+    max_tokens = response.json()["value"]
+    return max_tokens
+
+def kobold_retrieve_perf(endpoint, request_timeout=120):
+    """
+    Retrieve the KoboldCpp recent performance information
+    Useful to check whether an EOS token had been triggered, resulting in complete generation of output
+    """
+    endpoint = endpoint.rstrip('/')
+    headers = {'Content-Type': 'application/json'}
+    response = requests.get(
+        f"{endpoint}/extra/perf",
+        headers=headers,
+        timeout=request_timeout, stream=False)
+    return response.json()
+
+
 class StoryAgent:
     def __init__(self, backend_uri, backend="hf", request_timeout=120,
                  max_tokens=4096, n_crop_previous=400,
@@ -164,6 +235,11 @@ class StoryAgent:
                 max_tokens=self.max_tokens, extra_options=self.extra_options)
         elif self.backend == "llama.cpp":
             result = _query_chat_llamacpp(
+                self.backend_uri, messages, retries=retries,
+                request_timeout=self.request_timeout,
+                max_tokens=self.max_tokens, extra_options=self.extra_options)
+        elif self.backend == "koboldcpp":
+            result = _query_chat_koboldcpp(
                 self.backend_uri, messages, retries=retries,
                 request_timeout=self.request_timeout,
                 max_tokens=self.max_tokens, extra_options=self.extra_options)
